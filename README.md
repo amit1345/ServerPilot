@@ -1,122 +1,204 @@
-# ServerPilot
+# yallist
 
-Staff operations for FiveM GTA roleplay servers: reports, staff roles and server details, one isolated workspace per server.
+Yet Another Linked List
 
-- **Stack:** React 19 + TypeScript + Vite, Supabase (Auth + Postgres + Row Level Security). Everything fits in Supabase's free tier.
-- **UI:** dark glass theme, Hebrew RTL by default with an English toggle, sidebar on desktop and a drawer on mobile.
-- **Demo mode:** "Explore the demo" on the login screen opens the UI with in-memory sample data. It's labeled as demo on every page, saves nothing and isn't a login.
+There are many doubly-linked list implementations like it, but this
+one is mine.
 
-## What's in v1 and what isn't
+For when an array would be too big, and a Map can't be iterated in
+reverse order.
 
-| Included | Not included yet |
-| --- | --- |
-| Email/password auth (Supabase Auth) | Live FiveM status. The dashboard shows **"Not connected"** for real workspaces |
-| Multiple workspaces with full data isolation | Remote server administration (RCON, txAdmin, kicks or bans) |
-| Reports: create, view, update, assign, close or reopen, search and filter | Billing. Every workspace is on the Free plan (max 5 owned workspaces) |
-| Staff roles: owner, admin, moderator, viewer | Email invitations. Staff must already have an account |
-| Server connection details (non-secret only) | |
-| Activity feed (written by database triggers) | |
 
-## Setup
+[![Build Status](https://travis-ci.org/isaacs/yallist.svg?branch=master)](https://travis-ci.org/isaacs/yallist) [![Coverage Status](https://coveralls.io/repos/isaacs/yallist/badge.svg?service=github)](https://coveralls.io/github/isaacs/yallist)
 
-### 1. Run locally in demo mode (no backend)
+## basic usage
 
-```bash
-npm install
-npm run dev
+```javascript
+var yallist = require('yallist')
+var myList = yallist.create([1, 2, 3])
+myList.push('foo')
+myList.unshift('bar')
+// of course pop() and shift() are there, too
+console.log(myList.toArray()) // ['bar', 1, 2, 3, 'foo']
+myList.forEach(function (k) {
+  // walk the list head to tail
+})
+myList.forEachReverse(function (k, index, list) {
+  // walk the list tail to head
+})
+var myDoubledList = myList.map(function (k) {
+  return k + k
+})
+// now myDoubledList contains ['barbar', 2, 4, 6, 'foofoo']
+// mapReverse is also a thing
+var myDoubledListReverse = myList.mapReverse(function (k) {
+  return k + k
+}) // ['foofoo', 6, 4, 2, 'barbar']
+
+var reduced = myList.reduce(function (set, entry) {
+  set += entry
+  return set
+}, 'start')
+console.log(reduced) // 'startfoo123bar'
 ```
 
-Open http://localhost:5173. Sign-in stays disabled until Supabase is configured, but the demo works.
+## api
 
-### 2. Create a Supabase project (free)
+The whole API is considered "public".
 
-1. Create a project at https://supabase.com/dashboard.
-2. Open **SQL Editor**, paste all of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and run it once. (If you use the Supabase CLI, run `supabase db push` instead.)
-3. Open **Project Settings → API** and copy the **Project URL** and the **anon public** key.
-4. Copy `.env.example` to `.env.local` and fill in both values:
+Functions with the same name as an Array method work more or less the
+same way.
 
-   ```
-   VITE_SUPABASE_URL=https://xxxx.supabase.co
-   VITE_SUPABASE_ANON_KEY=eyJ...
-   ```
+There's reverse versions of most things because that's the point.
 
-5. Restart `npm run dev`.
+### Yallist
 
-> **Never** put the `service_role` key in `.env.local` or anywhere in this app. Anything prefixed with `VITE_` ends up in the browser bundle. The anon key is meant to be public, and RLS is what protects the data.
+Default export, the class that holds and manages a list.
 
-### 3. Configure Auth
+Call it with either a forEach-able (like an array) or a set of
+arguments, to initialize the list.
 
-Under **Authentication → URL Configuration**, set **Site URL** to your app's URL (for example `http://localhost:5173` during development). Add your production URL under **Redirect URLs** when you deploy.
+The Array-ish methods all act like you'd expect.  No magic length,
+though, so if you change that it won't automatically prune or add
+empty spots.
 
-Email confirmation is on by default. New users must click the link in their inbox before they can sign in. Supabase's built-in email sender has a low hourly limit. For production, set up custom SMTP under **Authentication → Emails**.
+### Yallist.create(..)
 
-### 4. Deploy (optional)
+Alias for Yallist function.  Some people like factories.
 
-This is a static SPA. Any free static host works, for example Vercel, Netlify or Cloudflare Pages:
+#### yallist.head
 
-- Build command: `npm run build`. Output directory: `dist`.
-- Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as environment variables on the host.
-- Add an SPA fallback so every path serves `index.html`. On Netlify, add `public/_redirects` containing `/* /index.html 200`. Vercel and Cloudflare Pages handle this automatically for Vite projects.
+The first node in the list
 
-## Security model
+#### yallist.tail
 
-All authorization lives in Postgres, in [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql). The permission checks in the frontend ([`src/lib/permissions.ts`](src/lib/permissions.ts)) only decide which buttons to show.
+The last node in the list
 
-- RLS is enabled on every table. The `anon` role has no table access at all.
-- You can only see a workspace, and its reports, members, settings and activity, if you have a row in `workspace_members` for it.
-- Role checks go through the `SECURITY DEFINER` helpers `my_role()` and `has_role()`. A non-member ranks 0 and never passes a check.
+#### yallist.length
 
-| Permission | Viewer | Moderator | Admin | Owner |
-| --- | :-: | :-: | :-: | :-: |
-| View dashboard, reports, staff, settings | ✓ | ✓ | ✓ | ✓ |
-| Create and update reports | | ✓ | ✓ | ✓ |
-| Manage staff (only roles below your own) | | | ✓ | ✓ |
-| Edit server settings and rename the workspace | | | ✓ | ✓ |
-| Delete the workspace | | | | ✓ |
+The number of nodes in the list.  (Change this at your peril.  It is
+not magic like Array length.)
 
-**Triggers enforce:**
+#### yallist.toArray()
 
-- Exactly one owner per workspace. The owner can't be demoted or removed.
-- Nobody can grant or manage a role equal to or above their own.
-- Report `workspace_id`, `created_by` and `created_at` can't be changed. `closed_at` is set by the server.
-- Assignees must be non-viewer staff of the same workspace.
-- The activity log is written only by triggers. Clients can't insert into it.
+Convert the list to an array.
 
-**Column privileges:** users can change only `display_name` and `locale` on their profile, only `name` on a workspace, and only `role` on a membership.
+#### yallist.forEach(fn, [thisp])
 
-**Secrets:** server settings hold only public connection info (host, port, cfx.re code). The app never asks for RCON passwords, txAdmin credentials or license keys.
+Call a function on each item in the list.
 
-**Passwords:** Supabase Auth handles passwords. The app never stores them. The Supabase SDK keeps only its own session token in `localStorage`. The app itself stores only UI preferences there: language and the last selected workspace.
+#### yallist.forEachReverse(fn, [thisp])
 
-### Testing the policies
+Call a function on each item in the list, in reverse order.
 
-```bash
-npm run test:db
-```
+#### yallist.get(n)
 
-This runs the migration on [PGlite](https://pglite.dev), an in-process Postgres with no Docker or account needed, using a minimal mock of Supabase's `auth` schema. It then checks 70 scenarios across six users: cross-workspace isolation, anonymous access, role escalation, owner protection, report rules, column privileges, cascading deletes, account deletion and plan limits. Run it after any change to the schema.
+Get the data at position `n` in the list.  If you use this a lot,
+probably better off just using an Array.
 
-## Project structure
+#### yallist.getReverse(n)
 
-```
-src/
-  lib/          types, i18n (he/en dictionaries), permissions (UI hints), supabase client, useAsync
-  data/         DataApi interface + supabaseApi (real) + demoApi (in-memory sample data)
-  context/      SessionContext (auth / demo), WorkspaceContext (current workspace)
-  components/   Shell (sidebar, drawer, top bar), ui primitives, icons
-  pages/        AuthPage, CreateWorkspace, Dashboard, Reports, Staff, ServerSettings, Account
-  styles.css    theme tokens + layout (CSS logical properties, so RTL and LTR share one stylesheet)
-supabase/
-  migrations/   schema, RLS, triggers, RPCs
-  tests/        PGlite-based policy tests
-```
+Get the data at position `n`, counting from the tail.
 
-**Adding a string:** add the key to `en` in `src/lib/i18n.tsx`. TypeScript then requires the same key in `he`.
+#### yallist.map(fn, thisp)
 
-**Adding a table:** enable RLS and write policies that use `has_role(workspace_id, '<min role>')`. Then add cases to `supabase/tests/rls.test.mjs`.
+Create a new Yallist with the result of calling the function on each
+item.
 
-## Known limitations
+#### yallist.mapReverse(fn, thisp)
 
-- Workspace deletion is permanent. There's no soft delete or undo.
-- When a user is deleted from Supabase, the workspaces they own are deleted with them. Reports they created stay, with the author shown as "—".
-- `profiles.email` is copied when the user signs up. It isn't updated if the user later changes their email.
+Same as `map`, but in reverse.
+
+#### yallist.pop()
+
+Get the data from the list tail, and remove the tail from the list.
+
+#### yallist.push(item, ...)
+
+Insert one or more items to the tail of the list.
+
+#### yallist.reduce(fn, initialValue)
+
+Like Array.reduce.
+
+#### yallist.reduceReverse
+
+Like Array.reduce, but in reverse.
+
+#### yallist.reverse
+
+Reverse the list in place.
+
+#### yallist.shift()
+
+Get the data from the list head, and remove the head from the list.
+
+#### yallist.slice([from], [to])
+
+Just like Array.slice, but returns a new Yallist.
+
+#### yallist.sliceReverse([from], [to])
+
+Just like yallist.slice, but the result is returned in reverse.
+
+#### yallist.toArray()
+
+Create an array representation of the list.
+
+#### yallist.toArrayReverse()
+
+Create a reversed array representation of the list.
+
+#### yallist.unshift(item, ...)
+
+Insert one or more items to the head of the list.
+
+#### yallist.unshiftNode(node)
+
+Move a Node object to the front of the list.  (That is, pull it out of
+wherever it lives, and make it the new head.)
+
+If the node belongs to a different list, then that list will remove it
+first.
+
+#### yallist.pushNode(node)
+
+Move a Node object to the end of the list.  (That is, pull it out of
+wherever it lives, and make it the new tail.)
+
+If the node belongs to a list already, then that list will remove it
+first.
+
+#### yallist.removeNode(node)
+
+Remove a node from the list, preserving referential integrity of head
+and tail and other nodes.
+
+Will throw an error if you try to have a list remove a node that
+doesn't belong to it.
+
+### Yallist.Node
+
+The class that holds the data and is actually the list.
+
+Call with `var n = new Node(value, previousNode, nextNode)`
+
+Note that if you do direct operations on Nodes themselves, it's very
+easy to get into weird states where the list is broken.  Be careful :)
+
+#### node.next
+
+The next node in the list.
+
+#### node.prev
+
+The previous node in the list.
+
+#### node.value
+
+The data the node contains.
+
+#### node.list
+
+The list to which this node belongs.  (Null if it does not belong to
+any list.)
